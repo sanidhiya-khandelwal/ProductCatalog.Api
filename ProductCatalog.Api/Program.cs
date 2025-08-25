@@ -2,6 +2,8 @@
 using ProductCatalog.Application.Interfaces;
 using ProductCatalog.Infrastructure;
 using ProductCatalog.Infrastructure.Repositories;
+using StackExchange.Redis;
+using Microsoft.Extensions.Caching.StackExchangeRedis;
 
 namespace ProductCatalog.Api
 {
@@ -10,6 +12,14 @@ namespace ProductCatalog.Api
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
+
+
+            // Register Redis cache
+            builder.Services.AddStackExchangeRedisCache(options =>
+            {
+                options.Configuration = "localhost:6379"; // Redis running in Docker
+                options.InstanceName = "ProductCatalog_"; // Prefix for keys (optional)
+            });
 
             // Add services to the container.
 

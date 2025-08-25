@@ -1,5 +1,7 @@
-﻿using Microsoft.AspNetCore.Components;
+﻿using System.Text.Json;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Distributed;
 using ProductCatalog.Application.Interfaces;
 using ProductCatalog.Domain.Entities;
 
@@ -10,16 +12,33 @@ namespace ProductCatalog.Api.Controllers
     public class ProductController : ControllerBase
     {
         private readonly IProductRepository _repo;
-        public ProductController(IProductRepository repo)
+        private readonly IDistributedCache _cache;
+        private readonly string _cacheKey = "products_cache";
+        public ProductController(IProductRepository repo, IDistributedCache cache)
         {
             _repo = repo;
+            _cache = cache;
         }
 
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            var products = await _repo.GetAllAsync();
-            return Ok(products);
+            //fetch from cache
+            var cachedData = await _cache.GetStringAsync(_cacheKey);
+            if (cachedData != null)
+            {
+                var cachedProducts = JsonSerializer.Deserialize<List<Product>>(cachedData);  
+                return Ok(cachedProducts);
+            }
+
+            //fetch from db
+            var dbProducts = await _repo.GetAllAsync();
+
+            //store in cache
+            var cacheOptions = new DistributedCacheEntryOptions().SetAbsoluteExpiration(TimeSpan.FromMinutes(5));
+
+            await _cache.SetStringAsync(_cacheKey, JsonSerializer.Serialize(dbProducts), cacheOptions);
+            return Ok(dbProducts);
         }
 
         [HttpGet("{id}")]
@@ -33,6 +52,10 @@ namespace ProductCatalog.Api.Controllers
         public async Task<IActionResult> Create(Product product)
         {
             await _repo.AddAsync(product);
+
+            //invalidate cache
+            await _cache.RemoveAsync(_cacheKey);
+
             return CreatedAtAction(nameof(GetById), new { id = product.ProductId }, product);
         }
         [HttpPut("{id}")]
@@ -44,6 +67,9 @@ namespace ProductCatalog.Api.Controllers
             if (existingProduct is null)
                 return NotFound();
             await _repo.UpdateAsync(product);
+
+            //invalidate cache
+            await _cache.RemoveAsync(_cacheKey);
             return Ok("Product Updated Successfully");
         }
 
@@ -54,6 +80,10 @@ namespace ProductCatalog.Api.Controllers
             if (existingProduct is null)
                 return NotFound();
             await _repo.DeleteAsync(id);
+
+            //invalidate cache
+            await _cache.RemoveAsync(_cacheKey);
+
             return Ok("Product Deleted Successfully");
         }
 
