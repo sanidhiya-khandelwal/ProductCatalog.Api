@@ -1,9 +1,10 @@
 
+using Microsoft.Extensions.Caching.StackExchangeRedis;
+using ProductCatalog.Api.Middlewares;
 using ProductCatalog.Application.Interfaces;
 using ProductCatalog.Infrastructure;
 using ProductCatalog.Infrastructure.Repositories;
 using StackExchange.Redis;
-using Microsoft.Extensions.Caching.StackExchangeRedis;
 
 namespace ProductCatalog.Api
 {
@@ -20,6 +21,7 @@ namespace ProductCatalog.Api
                 options.Configuration = "localhost:6379"; // Redis running in Docker
                 options.InstanceName = "ProductCatalog_"; // Prefix for keys (optional)
             });
+
 
             // Add services to the container.
 
@@ -43,6 +45,8 @@ namespace ProductCatalog.Api
             }
 
             app.UseHttpsRedirection();
+
+            app.UseMiddleware<RequestLoggingMiddleware>();
 
             app.UseAuthorization();
 
