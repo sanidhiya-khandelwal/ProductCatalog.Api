@@ -1,6 +1,7 @@
 ﻿using System.Text.Json;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Caching.Distributed;
 using ProductCatalog.Application.Interfaces;
 using ProductCatalog.Domain.Entities;
@@ -21,6 +22,7 @@ namespace ProductCatalog.Api.Controllers
         }
 
         [HttpGet]
+        [EnableRateLimiting("fixed")]
         public async Task<IActionResult> GetAll()
         {
             //fetch from cache

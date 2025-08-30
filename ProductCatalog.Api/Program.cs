@@ -1,4 +1,6 @@
 
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Caching.StackExchangeRedis;
 using ProductCatalog.Api.Middlewares;
 using ProductCatalog.Application.Interfaces;
@@ -34,6 +36,24 @@ namespace ProductCatalog.Api
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 
+            // Add rate limiting
+            builder.Services.AddRateLimiter(options =>
+            {
+                options.AddFixedWindowLimiter("fixed", limiterOptions =>
+                {
+                    limiterOptions.PermitLimit = 5; // allow 5 requests
+                    limiterOptions.Window = TimeSpan.FromSeconds(10); // per 10 seconds
+                    limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+                    limiterOptions.QueueLimit = 2; // queue up to 2 requests before rejecting
+                });
+
+                options.OnRejected = async (context, token) =>
+                {
+                    context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+                    await context.HttpContext.Response.WriteAsync("Rate limit exceeded. Try again later.");
+                };
+            });
+
 
             var app = builder.Build();
 
@@ -45,6 +65,9 @@ namespace ProductCatalog.Api
             }
 
             app.UseHttpsRedirection();
+
+            app.UseRateLimiter(); //enable rate limiting globally 
+
 
             app.UseMiddleware<RequestLoggingMiddleware>();
 
